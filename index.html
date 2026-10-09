@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillSwap — Share What You Know. Learn What You Love.</title>
+    <!-- Tailwind CSS v4 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-in-out forwards; }
+        body { background-color: #090d16; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-emerald-500 selection:text-slate-950">
+
+    <!-- APP ROOT -->
+    <div id="app" class="flex-grow flex flex-col"></div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        // --- MOCK DATABASE & STATE ---
+        const State = {
+            currentView: 'landing', // landing, auth, dashboard, matches, messages, sessions, admin, profile
+            authMode: 'signin', // signin, signup
+            currentUser: JSON.parse(localStorage.getItem('ss_user')) || null,
+            users: JSON.parse(localStorage.getItem('ss_users')) || [
+                { id: 'u1', name: 'Elena Vance', email: 'elena@example.com', bio: 'Senior UI/UX Designer looking to learn backend coding.', location: 'San Francisco, CA', timezone: 'PST', level: 'Expert', teach: ['UI/UX Design', 'Figma', 'Graphic Design'], learn: ['Python', 'Node.js'] },
+                { id: 'u2', name: 'Marcus Chen', email: 'marcus@example.com', bio: 'Full-stack developer wanting to master video editing for tech vlogs.', location: 'New York, NY', timezone: 'EST', level: 'Intermediate', teach: ['JavaScript', 'React', 'Python'], learn: ['Video Editing', 'Premiere Pro'] },
+                { id: 'u3', name: 'Aaliyah Patel', email: 'aaliyah@example.com', bio: 'Professional photographer and content creator exploring Spanish.', location: 'London, UK', timezone: 'GMT', level: 'Advanced', teach: ['Photography', 'Lightroom', 'Video Editing'], learn: ['Spanish', 'Digital Marketing'] }
+            ],
+            requests: JSON.parse(localStorage.getItem('ss_requests')) || [
+                { id: 'r1', fromId: 'u1', toId: 'currentUser', status: 'pending', skillOffered: 'Figma', skillWanted: 'Python' }
+            ],
+            messages: JSON.parse(localStorage.getItem('ss_messages')) || [
+                { id: 'm1', senderId: 'u1', receiverId: 'currentUser', text: 'Hey! Saw you wanted to learn Figma. I can teach that!', timestamp: '10:45 AM' }
+            ],
+            sessions: JSON.parse(localStorage.getItem('ss_sessions')) || [
+                { id: 's1', partnerName: 'Elena Vance', skill: 'UI/UX Design Basics', date: '2026-10-15', time: '14:00', timezone: 'PST', status: 'confirmed' }
+            ],
+            reviews: JSON.parse(localStorage.getItem('ss_reviews')) || [],
+            adminModal: false,
+            activeChatUser: null
+        };
+
+        function persist() {
+            localStorage.setItem('ss_user', JSON.stringify(State.currentUser));
+            localStorage.setItem('ss_users', JSON.stringify(State.users));
+            localStorage.setItem('ss_requests', JSON.stringify(State.requests));
+            localStorage.setItem('ss_messages', JSON.stringify(State.messages));
+            localStorage.setItem('ss_sessions', JSON.stringify(State.sessions));
+            localStorage.setItem('ss_reviews', JSON.stringify(State.reviews));
+        }
+
+        // --- RENDER CONTROLLER ---
+        function render() {
+            const root = document.getElementById('app');
+            root.innerHTML = `
+                ${renderNavbar()}
+                <main class="flex-grow flex flex-col">
+                    ${getStateView()}
+                </main>
+                ${renderFooter()}
+            `;
+        }
+
+        function getStateView() {
+            if (!State.currentUser && State.currentView === 'auth') return renderAuthView();
+            if (!State.currentUser) return renderLandingView();
+            
+            switch(State.currentView) {
+                case 'dashboard': return renderDashboardView();
+                case 'matches': return renderMatchesView();
+                case 'messages': return renderMessagesView();
+                case 'sessions': return renderSessionsView();
+                case 'profile': return renderProfileView();
+                case 'admin': return renderAdminView();
+                default: return renderDashboardView();
+            }
+        }
+
+        // --- COMPONENTS ---
+        function renderNavbar() {
+            const isAdmin = State.currentUser && State.currentUser.email === 'admin@skillswap.com';
+            return `
+                <header class="sticky top-0 z-50 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+                        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView('${State.currentUser ? 'dashboard' : 'landing'}')">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-purple-900/40">
+                                <i class="fa-solid fa-rotate"></i>
+                            </div>
+                            <div>
+                                <span class="text-xl font-extrabold tracking-tight text-white">Skill<span class="text-emerald-400">Swap</span></span>
+                                <span class="block text-[10px] text-purple-400 font-semibold uppercase tracking-widest">P2P Learning</span>
+                            </div>
+                        </div>
+
+                        <nav class="hidden md:flex items-center space-x-6 text-sm font-medium">
+                            ${State.currentUser ? `
+                                <button onclick="switchView('dashboard')" class="hover:text-emerald-400 transition ${State.currentView === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-300'}">Dashboard</button>
+                                <button onclick="switchView('matches')" class="hover:text-emerald-400 transition ${State.currentView === 'matches' ? 'text-emerald-400 font-bold' : 'text-slate-300'}">Find Matches</button>
+                                <button onclick="switchView('messages')" class="hover:text-emerald-400 transition ${State.currentView === 'messages' ? 'text-emerald-400 font-bold' : 'text-slate-300'}">Messages</button>
+                                <button onclick="switchView('sessions')" class="hover:text-emerald-400 transition ${State.currentView === 'sessions' ? 'text-emerald-400 font-bold' : 'text-slate-300'}">Sessions</button>
+                                ${isAdmin ? `<button onclick="switchView('admin')" class="text-purple-400 font-bold hover:text-purple-300 transition">Admin Panel</button>` : ''}
+                            ` : `
+                                <a href="#features" class="text-slate-300 hover:text-emerald-400 transition">Features</a>
+                                <a href="#how-it-works" class="text-slate-300 hover:text-emerald-400 transition">How It Works</a>
+                                <a href="#popular" class="text-slate-300 hover:text-emerald-400 transition">Explore Skills</a>
+                            `}
+                        </nav>
+
+                        <div class="flex items-center space-x-3">
+                            ${State.currentUser ? `
+                                <button onclick="switchView('profile')" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-emerald-500/50 transition">
+                                    <div class="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center font-bold text-xs text-white">
+                                        ${State.currentUser.name.charAt(0
